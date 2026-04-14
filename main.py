@@ -145,6 +145,24 @@ def find_required_version(path: Path) -> str | None:
     return None
 
 
+def find_terraform_version_file(path: Path) -> str | None:
+    """Find version from a .terraform-version file (used by tfenv/tfswitch).
+
+    Returns:
+        The version string if found, None otherwise.
+    """
+    version_file = path / ".terraform-version"
+    if not version_file.exists():
+        return None
+
+    version = version_file.read_text().strip().removeprefix("v")
+    if version:
+        print("Found version in .terraform-version", file=sys.stderr)
+        return version
+
+    return None
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Detect Terraform required_version from .tf files"
@@ -166,24 +184,29 @@ def main():
 
     terraform_releases = fetch_terraform_releases()
 
+    # 1. Check required_version in .tf files
     required_version = find_required_version(path)
-    if required_version is None:
-        print("No version specification found, using latest.", file=sys.stderr)
+    if required_version is not None:
+        for version in terraform_releases:
+            if check_version(required_version, version):
+                version_str = ".".join(map(str, version))
+                print(f"Using v{version_str}.", file=sys.stderr)
+                print(version_str, end="")
+                return
 
-        latest_release = terraform_releases[0]
-        version_str = ".".join(map(str, latest_release))
-        print(f"Using v{version_str}", file=sys.stderr)
-
-        print(version_str, end="")
+    # 2. Check .terraform-version file
+    tf_version = find_terraform_version_file(path)
+    if tf_version is not None:
+        print(f"Using v{tf_version}.", file=sys.stderr)
+        print(tf_version, end="")
         return
 
-    for version in terraform_releases:
-        if check_version(required_version, version):
-            version_str = ".".join(map(str, version))
-            print(f"Using v{version_str}.", file=sys.stderr)
-
-            print(".".join(map(str, version)), end="")
-            return
+    # 3. Fallback to latest
+    print("No version specification found, using latest.", file=sys.stderr)
+    latest_release = terraform_releases[0]
+    version_str = ".".join(map(str, latest_release))
+    print(f"Using v{version_str}", file=sys.stderr)
+    print(version_str, end="")
 
 
 if __name__ == "__main__":
