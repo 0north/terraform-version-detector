@@ -174,6 +174,13 @@ def main():
         required=False,
         default=".",
     )
+    parser.add_argument(
+        "--fallback-version",
+        type=str,
+        help="Fallback version when no version specification is found (default: latest)",
+        required=False,
+        default=None,
+    )
     args = parser.parse_args()
     path = Path(args.path)
 
@@ -191,22 +198,30 @@ def main():
             if check_version(required_version, version):
                 version_str = ".".join(map(str, version))
                 print(f"Using v{version_str}.", file=sys.stderr)
-                print(version_str, end="")
+                print(version_str)
+                print("true")
                 return
 
     # 2. Check .terraform-version file
     tf_version = find_terraform_version_file(path)
     if tf_version is not None:
         print(f"Using v{tf_version}.", file=sys.stderr)
-        print(tf_version, end="")
+        print(tf_version)
+        print("true")
         return
 
-    # 3. Fallback to latest
-    print("No version specification found, using latest.", file=sys.stderr)
-    latest_release = terraform_releases[0]
-    version_str = ".".join(map(str, latest_release))
+    # 3. Fallback to specified version or latest
+    if args.fallback_version:
+        version_str = args.fallback_version.removeprefix("v")
+        print("No version specification found, using fallback.", file=sys.stderr)
+    else:
+        latest_release = terraform_releases[0]
+        version_str = ".".join(map(str, latest_release))
+        print("No version specification found, using latest.", file=sys.stderr)
+
     print(f"Using v{version_str}", file=sys.stderr)
-    print(version_str, end="")
+    print(version_str)
+    print("false")
 
 
 if __name__ == "__main__":

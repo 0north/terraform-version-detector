@@ -8,11 +8,18 @@ inputs:
     type: string
     description: "Relative directory path to Terraform working directory."
     default: "."
+  fallback-version:
+    type: string
+    description: "Version to use when no version constraint is found. Defaults to latest."
+    required: false
 
 outputs:
   terraform-version:
     description: "The detected Terraform version."
     value: ${{ steps.detect-version.outputs.terraform }}
+  version-was-detected:
+    description: "Whether a version constraint was found in the Terraform configuration (true/false)."
+    value: ${{ steps.detect-version.outputs.detected }}
 
 runs:
   using: "composite"
@@ -34,5 +41,11 @@ runs:
       env:
         UV_WORKING_DIRECTORY: ${{ github.action_path }}
       run: |
-        uv run main.py --path ${{ github.workspace }}/${{ inputs.path }} > result
-        echo "terraform=$(cat result)" >> $GITHUB_OUTPUT
+        fallback_args=""
+        if [ -n "${{ inputs.fallback-version }}" ]; then
+          fallback_args="--fallback-version ${{ inputs.fallback-version }}"
+        fi
+        uv run main.py --path ${{ github.workspace }}/${{ inputs.path }} $fallback_args > result
+        { read -r version; read -r detected; } < result
+        echo "terraform=${version}" >> $GITHUB_OUTPUT
+        echo "detected=${detected}" >> $GITHUB_OUTPUT
