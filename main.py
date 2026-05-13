@@ -6,6 +6,7 @@ from pathlib import Path
 from urllib.request import urlopen
 
 import hcl2
+from hcl2 import SerializationOptions
 
 
 class VersionOperator(StrEnum):
@@ -135,7 +136,7 @@ def find_required_version(path: Path) -> str | None:
     """
     for tf_file in path.glob("*.tf"):
         with open(tf_file, "r") as file:
-            parsed = hcl2.load(file)  # pyright: ignore[reportPrivateImportUsage]
+            parsed = hcl2.load(file, serialization_options=SerializationOptions(strip_string_quotes=True))
 
         for terraform_block in parsed.get("terraform", []):
             if required_version := terraform_block.get("required_version"):
